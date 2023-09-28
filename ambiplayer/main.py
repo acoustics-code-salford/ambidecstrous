@@ -1,9 +1,10 @@
 import os
 import sys
+import decoders
 import soundfile as sf
 import sounddevice as sd
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QPushButton,
@@ -30,21 +31,18 @@ class MainWindow(QMainWindow):
         super().__init__()
         
         self.player = None
-
-        self.setMaximumHeight(500)
-        self.setMinimumHeight(300)
-        self.setMaximumWidth(500)
-        self.setMinimumWidth(300)
+        self.setFixedSize(QSize(500,300))
 
         layout = QGridLayout()
-        self.setWindowTitle('Audio Player')
+        self.setWindowTitle('Ambisonic Audio Player')
 
         # label shown in main part of window
-        self.label = QLabel('Audio Player')
-        layout.addWidget(self.label, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
+        self.label = QLabel('')
+        layout.addWidget(self.label, 1, 0, 1, 4, Qt.AlignmentFlag.AlignCenter)
 
         # find default output device
         device_list = list(sd.query_devices())
+        # list devices with output channels available
         output_device_names = \
             [device['name'] for device in device_list
              if device['max_output_channels'] > 0]
@@ -54,18 +52,24 @@ class MainWindow(QMainWindow):
 
         # create dropdown menu for device selection
         self.device_dropdown = QComboBox()
-        # add devices with output channels available
         self.device_dropdown.addItems(output_device_names)
         self.device_dropdown.setCurrentIndex(
             self.output_device_indices.index(sd.default.device[1]))
         self.device_dropdown.currentIndexChanged.connect(self.device_changed)
-        layout.addWidget(self.device_dropdown, 1, 1, 2, 3)
-        
         self.device_index = sd.default.device[1]
+
+        self.decoder_dropdown = QComboBox()
+        self.decoder_dropdown.addItems(['Raw', 'Stereo UHJ', 'Ambisonics'])
+        self.decoder_dropdown.currentIndexChanged.connect(self.decoder_changed)
+        
+        self.channel_format_dropdown = QComboBox()
+        self.channel_format_dropdown.addItems(['ACN', 'FuMa'])
 
         form = QFormLayout()
         form.addRow('Output Device:', self.device_dropdown)
-        layout.addLayout(form, 1, 0, 1, 4, Qt.AlignmentFlag.AlignJustify)
+        form.addRow('Decoder:', self.decoder_dropdown)
+        form.addRow('Channel Format:', self.channel_format_dropdown)
+        layout.addLayout(form, 0, 0, 1, 4, Qt.AlignmentFlag.AlignJustify)
         
         # play button
         self.play_button = QPushButton(
@@ -119,29 +123,32 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
     def playButtonClicked(self):
-        if not self.player: return False
         self.stop_button.setChecked(False)
         self.pause_button.setDisabled(False)
         self.pause_button.setChecked(False)
         self.play_button.setChecked(True)
         self.player.play()
         self.device_dropdown.setDisabled(True)
+        self.decoder_dropdown.setDisabled(True)
+        self.channel_format_dropdown.setDisabled(True)
     
     def pauseButtonClicked(self):
-        if not self.player: return False
         self.play_button.setChecked(False)
         self.pause_button.setChecked(True)
         self.player.pause()
         self.device_dropdown.setDisabled(False)
+        self.decoder_dropdown.setDisabled(False)
+        self.channel_format_dropdown.setDisabled(False)
 
     def stopButtonClicked(self):
-        if not self.player: return False
         self.stop_button.setChecked(True)
         self.play_button.setChecked(False)
         self.pause_button.setChecked(False)
         self.player.stop()
         self.pause_button.setDisabled(True)
         self.device_dropdown.setDisabled(False)
+        self.decoder_dropdown.setDisabled(False)
+        self.channel_format_dropdown.setDisabled(False)
 
     def openButtonClicked(self, _):
         # set up dialog box
@@ -155,25 +162,45 @@ class MainWindow(QMainWindow):
         # retrieve filepath
         filepath = dialog.selectedFiles()
         
-        try:
-            self.filepath = filepath[0]
-            self.label.setText(os.path.basename(self.filepath))
-        except ValueError:
-            print('Invalid filepath')
-            return False
+        if not filepath: return False
+        self.filepath = filepath[0]
+        self.label.setText(os.path.basename(self.filepath))
 
         self.file, self.fs = sf.read(self.filepath)
-        print(self.device_index)
-        self.player = AudioPlayer(self.file, self.fs, self.device_index)
+
+        print(self.decoder_dropdown.currentIndex())
+        match self.decoder_dropdown.currentIndex():
+            case 0: decoder = decoders.raw
+            case 1: decoder = decoders.stereo_uhj
+            case 2: pass # Ambisonics
+        # TODO: MIGHT NEED TO STORE CURRENT DECODER
+        self.player = AudioPlayer(
+            self.file, 
+            self.fs, 
+            self.device_index, 
+            decoder
+        )
+
         self.play_button.setDisabled(False)
         self.stop_button.setDisabled(False)
         self.stop_button.setChecked(True)
 
     def device_changed(self, index):
         self.device_index = self.output_device_indices[index]
-        if self.player:
-            self.player = AudioPlayer(self.file, self.fs, self.device_index,
-                                      self.player.current_frame)
+        if not self.player: return False
+        self.player = AudioPlayer(self.file, 
+                                  self.fs, 
+                                  self.device_index,
+                                  current_frame=self.player.current_frame
+        )
+    
+    def decoder_changed(self, index):
+        print(index)
+        if not self.player: return False
+        match index:
+            case 0: self.player.decoder = decoders.raw
+            case 1: self.player.decoder = decoders.stereo_uhj
+            case 2: pass # Ambisonics
 
 app = QApplication(sys.argv)
 window = MainWindow()
