@@ -23,13 +23,15 @@ from audio_processing import AudioPlayer
 from pathlib import Path
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: Dropdown dialog for audio output device e.g. print(sd.query_devices())
+# TODO: Save position in file when output device changes
 # TODO: Support for files with channels > 2
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        self.player = None
+
         self.setMaximumHeight(500)
         self.setMinimumHeight(300)
         self.setMaximumWidth(500)
@@ -43,19 +45,27 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.label, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
 
         # find default output device
-        self.device_idx = sd.default.device[1]
+        device_list = list(sd.query_devices())
+        output_device_names = \
+            [device['name'] for device in device_list
+             if device['max_output_channels'] > 0]
+        self.output_device_indices = \
+            [device['index'] for device in device_list
+             if device['max_output_channels'] > 0]
+
         # create dropdown menu for device selection
         self.device_dropdown = QComboBox()
         # add devices with output channels available
-        self.device_dropdown.addItems(
-            [device['name'] for device in list(sd.query_devices())
-             if device['max_output_channels'] > 0])
-        self.device_dropdown.setCurrentIndex(self.device_idx)
+        self.device_dropdown.addItems(output_device_names)
+        self.device_dropdown.setCurrentIndex(
+            self.output_device_indices.index(sd.default.device[1]))
         self.device_dropdown.currentIndexChanged.connect(self.device_changed)
         layout.addWidget(self.device_dropdown, 1, 1, 2, 2)
+        
+        self.device_index = sd.default.device[1]
 
         form = QFormLayout()
-        form.addRow('Device', self.device_dropdown)
+        form.addRow('Output Device:', self.device_dropdown)
         layout.addLayout(form, 1, 0, 1, 3, Qt.AlignmentFlag.AlignJustify)
         
         # play/pause button
@@ -93,7 +103,6 @@ class MainWindow(QMainWindow):
         widget.setLayout(layout)
 
         self.setCentralWidget(widget)
-        self.player = None
 
     def playButtonClicked(self, playing):
         if not self.player: return False
@@ -141,11 +150,14 @@ class MainWindow(QMainWindow):
             return False
 
         self.file, self.fs = sf.read(self.filepath)
-        self.player = AudioPlayer(self.file, self.fs, self.device_idx)
+        print(self.device_index)
+        self.player = AudioPlayer(self.file, self.fs, self.device_index)
         self.play_button.setCheckable(True)
 
-    def device_changed(self, idx):
-        self.device_idx = idx
+    def device_changed(self, index):
+        self.device_index = self.output_device_indices[index]
+        if self.player:
+            self.player = AudioPlayer(self.file, self.fs, self.device_index)
 
 app = QApplication(sys.argv)
 window = MainWindow()
