@@ -23,7 +23,6 @@ from audio_processing import AudioPlayer
 from pathlib import Path
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: Save position in file when output device changes
 # TODO: Support for files with channels > 2
 
 class MainWindow(QMainWindow):
@@ -157,7 +156,8 @@ class MainWindow(QMainWindow):
     def device_changed(self, index):
         self.device_index = self.output_device_indices[index]
         if self.player:
-            self.player = AudioPlayer(self.file, self.fs, self.device_index)
+            self.player = AudioPlayer(self.file, self.fs, self.device_index,
+                                      self.player.current_frame)
 
 app = QApplication(sys.argv)
 window = MainWindow()

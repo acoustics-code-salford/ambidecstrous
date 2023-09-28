@@ -2,9 +2,9 @@ import threading
 import sounddevice as sd
 
 class AudioPlayer():
-    def __init__(self, clip, fs, device_index) -> None:
+    def __init__(self, clip, fs, device_index, current_frame=0) -> None:
 
-        self.current_frame = 0
+        self.current_frame = current_frame
         self.clip = clip
         self.fs = fs
         self.device_index = device_index
