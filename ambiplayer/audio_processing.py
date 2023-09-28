@@ -2,17 +2,18 @@ import threading
 import sounddevice as sd
 
 class AudioPlayer():
-    def __init__(self, clip, fs) -> None:
+    def __init__(self, clip, fs, device) -> None:
 
         self.current_frame = 0
         self.clip = clip
         self.fs = fs
+        self.device = device
 
         self.event = threading.Event()
 
         self.stream = sd.OutputStream(
             samplerate=self.fs, 
-            device=2, 
+            device=self.device, 
             channels=self.clip.shape[1],
             callback=self.update_output_buffer
         )

@@ -11,7 +11,9 @@ from PyQt6.QtWidgets import (
     QApplication, 
     QLabel, 
     QFileDialog, 
+    QFormLayout,
     QDial,
+    QComboBox,
     QWidget, 
     QGridLayout
 )
@@ -21,28 +23,40 @@ from audio_processing import AudioPlayer
 from pathlib import Path
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: Git init
-# TODO: Dropdown dialog for audio output device
-# e.g. print(sd.query_devices())
+# TODO: Dropdown dialog for audio output device e.g. print(sd.query_devices())
+# TODO: Support for files with channels > 2
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        
-
         super().__init__()
         
-        self.setMaximumHeight(300)
+        self.setMaximumHeight(500)
         self.setMinimumHeight(300)
         self.setMaximumWidth(500)
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(300)
 
         layout = QGridLayout()
         self.setWindowTitle('Audio Player')
 
         # label shown in main part of window
         self.label = QLabel('Audio Player')
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.label, 0, 0, 1, 3)
+        layout.addWidget(self.label, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
+
+        # find default output device
+        self.device_idx = sd.default.device[1]
+        # create dropdown menu for device selection
+        self.device_dropdown = QComboBox()
+        # add devices with output channels available
+        self.device_dropdown.addItems(
+            [device['name'] for device in list(sd.query_devices())
+             if device['max_output_channels'] > 0])
+        self.device_dropdown.setCurrentIndex(self.device_idx)
+        self.device_dropdown.currentIndexChanged.connect(self.device_changed)
+        layout.addWidget(self.device_dropdown, 1, 1, 2, 2)
+
+        form = QFormLayout()
+        form.addRow('Device', self.device_dropdown)
+        layout.addLayout(form, 1, 0, 1, 3, Qt.AlignmentFlag.AlignJustify)
         
         # play/pause button
         self.play_button = QPushButton(
@@ -51,7 +65,7 @@ class MainWindow(QMainWindow):
         self.play_button.setMinimumWidth(100)
         self.play_button.setMaximumWidth(100)
         self.play_button.setMinimumHeight(100)
-        layout.addWidget(self.play_button, 1, 0)
+        layout.addWidget(self.play_button, 2, 0)
 
         # stop button
         self.stop_button = QPushButton(
@@ -60,7 +74,7 @@ class MainWindow(QMainWindow):
         self.stop_button.setMinimumWidth(100)
         self.stop_button.setMaximumWidth(100)
         self.stop_button.setMinimumHeight(100)
-        layout.addWidget(self.stop_button, 1, 1)
+        layout.addWidget(self.stop_button, 2, 1)
 
         # open button
         self.open_button = QPushButton(
@@ -70,7 +84,7 @@ class MainWindow(QMainWindow):
         self.open_button.setMinimumWidth(100)
         self.open_button.setMaximumWidth(100)
         self.open_button.setMinimumHeight(100)
-        layout.addWidget(self.open_button, 1, 2)
+        layout.addWidget(self.open_button, 2, 2)
         
         # layout.addWidget(QDial(), 4, 0)
         # layout.addWidget(QDial(), 4, 1)
@@ -79,7 +93,6 @@ class MainWindow(QMainWindow):
         widget.setLayout(layout)
 
         self.setCentralWidget(widget)
-
         self.player = None
 
     def playButtonClicked(self, playing):
@@ -90,18 +103,23 @@ class MainWindow(QMainWindow):
             self.play_button.setText('Pause')
             self.play_button.setToolTip('Pause')
             self.player.play()
+            self.device_dropdown.setDisabled(True)
         else:
             self.play_button.setIcon(QIcon(root_path + '/icons/play.png'))
             self.play_button.setText('Play')
             self.play_button.setToolTip('Play')
             self.player.pause()
+            self.device_dropdown.setDisabled(False)
 
     def stopButtonClicked(self):
+        if not self.player: return False
+
         self.play_button.setChecked(False)
         self.play_button.setIcon(QIcon(root_path + '/icons/play.png'))
         self.play_button.setText('Play')
         self.play_button.setToolTip('Play')
         self.player.stop()
+        self.device_dropdown.setDisabled(False)
 
     def openButtonClicked(self, _):
         # set up dialog box
@@ -123,8 +141,11 @@ class MainWindow(QMainWindow):
             return False
 
         self.file, self.fs = sf.read(self.filepath)
-        self.player = AudioPlayer(self.file, self.fs)
+        self.player = AudioPlayer(self.file, self.fs, self.device_idx)
         self.play_button.setCheckable(True)
+
+    def device_changed(self, idx):
+        self.device_idx = idx
 
 app = QApplication(sys.argv)
 window = MainWindow()
