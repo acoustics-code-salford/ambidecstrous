@@ -59,22 +59,35 @@ class MainWindow(QMainWindow):
         self.device_dropdown.setCurrentIndex(
             self.output_device_indices.index(sd.default.device[1]))
         self.device_dropdown.currentIndexChanged.connect(self.device_changed)
-        layout.addWidget(self.device_dropdown, 1, 1, 2, 2)
+        layout.addWidget(self.device_dropdown, 1, 1, 2, 3)
         
         self.device_index = sd.default.device[1]
 
         form = QFormLayout()
         form.addRow('Output Device:', self.device_dropdown)
-        layout.addLayout(form, 1, 0, 1, 3, Qt.AlignmentFlag.AlignJustify)
+        layout.addLayout(form, 1, 0, 1, 4, Qt.AlignmentFlag.AlignJustify)
         
-        # play/pause button
+        # play button
         self.play_button = QPushButton(
             QIcon(root_path + '/icons/play.png'), 'Play', self)
         self.play_button.clicked.connect(self.playButtonClicked)
         self.play_button.setMinimumWidth(100)
         self.play_button.setMaximumWidth(100)
         self.play_button.setMinimumHeight(100)
+        self.play_button.setCheckable(True)
+        self.play_button.setDisabled(True)
         layout.addWidget(self.play_button, 2, 0)
+
+        # pause button
+        self.pause_button = QPushButton(
+            QIcon(root_path + '/icons/pause.png'), 'Pause', self)
+        self.pause_button.clicked.connect(self.pauseButtonClicked)
+        self.pause_button.setMinimumWidth(100)
+        self.pause_button.setMaximumWidth(100)
+        self.pause_button.setMinimumHeight(100)
+        self.pause_button.setCheckable(True)
+        self.pause_button.setDisabled(True)
+        layout.addWidget(self.pause_button, 2, 1)
 
         # stop button
         self.stop_button = QPushButton(
@@ -83,7 +96,9 @@ class MainWindow(QMainWindow):
         self.stop_button.setMinimumWidth(100)
         self.stop_button.setMaximumWidth(100)
         self.stop_button.setMinimumHeight(100)
-        layout.addWidget(self.stop_button, 2, 1)
+        self.stop_button.setCheckable(True)
+        self.stop_button.setDisabled(True)
+        layout.addWidget(self.stop_button, 2, 2)
 
         # open button
         self.open_button = QPushButton(
@@ -93,7 +108,7 @@ class MainWindow(QMainWindow):
         self.open_button.setMinimumWidth(100)
         self.open_button.setMaximumWidth(100)
         self.open_button.setMinimumHeight(100)
-        layout.addWidget(self.open_button, 2, 2)
+        layout.addWidget(self.open_button, 2, 3)
         
         # layout.addWidget(QDial(), 4, 0)
         # layout.addWidget(QDial(), 4, 1)
@@ -103,30 +118,29 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(widget)
 
-    def playButtonClicked(self, playing):
+    def playButtonClicked(self):
         if not self.player: return False
-
-        if playing:
-            self.play_button.setIcon(QIcon(root_path + '/icons/pause.png'))
-            self.play_button.setText('Pause')
-            self.play_button.setToolTip('Pause')
-            self.player.play()
-            self.device_dropdown.setDisabled(True)
-        else:
-            self.play_button.setIcon(QIcon(root_path + '/icons/play.png'))
-            self.play_button.setText('Play')
-            self.play_button.setToolTip('Play')
-            self.player.pause()
-            self.device_dropdown.setDisabled(False)
+        self.stop_button.setChecked(False)
+        self.pause_button.setDisabled(False)
+        self.pause_button.setChecked(False)
+        self.play_button.setChecked(True)
+        self.player.play()
+        self.device_dropdown.setDisabled(True)
+    
+    def pauseButtonClicked(self):
+        if not self.player: return False
+        self.play_button.setChecked(False)
+        self.pause_button.setChecked(True)
+        self.player.pause()
+        self.device_dropdown.setDisabled(False)
 
     def stopButtonClicked(self):
         if not self.player: return False
-
+        self.stop_button.setChecked(True)
         self.play_button.setChecked(False)
-        self.play_button.setIcon(QIcon(root_path + '/icons/play.png'))
-        self.play_button.setText('Play')
-        self.play_button.setToolTip('Play')
+        self.pause_button.setChecked(False)
         self.player.stop()
+        self.pause_button.setDisabled(True)
         self.device_dropdown.setDisabled(False)
 
     def openButtonClicked(self, _):
@@ -151,7 +165,9 @@ class MainWindow(QMainWindow):
         self.file, self.fs = sf.read(self.filepath)
         print(self.device_index)
         self.player = AudioPlayer(self.file, self.fs, self.device_index)
-        self.play_button.setCheckable(True)
+        self.play_button.setDisabled(False)
+        self.stop_button.setDisabled(False)
+        self.stop_button.setChecked(True)
 
     def device_changed(self, index):
         self.device_index = self.output_device_indices[index]
