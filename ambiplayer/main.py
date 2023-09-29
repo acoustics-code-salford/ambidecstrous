@@ -4,6 +4,7 @@ import math
 import json
 import glob
 import decoders
+import numpy as np
 import soundfile as sf
 import sounddevice as sd
 
@@ -27,16 +28,18 @@ from audio_processing import AudioPlayer
 from pathlib import Path
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: make a menu incorporating json speaker positioning implementation
-# TODO: make Ambisonic decoder object (with SN3D norm)
-# TODO: support for alternative normalisation schemes
+# TODO: make actual decoder stage for Ambisonic object and test
+# TODO: ? take into account channel numbering for decoder matrix
+# TODO: add (sn3d) norms / maxre to Ambisonic decoder object
 # TODO: Add horizontal-only support
-# TODO: Add more standard layouts
+# TODO: Add more standard loudspeaker layouts
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        self.player = None
+
         # general properties of the main window
         layout = QGridLayout()
         self.setWindowTitle('Ambisonic Audio Player')
@@ -74,6 +77,7 @@ class MainWindow(QMainWindow):
         self.decoder_dropdown.currentIndexChanged.connect(self.decoder_changed)
         self.decoder_dropdown.model().item(1).setEnabled(False)
         self.decoder_dropdown.model().item(2).setEnabled(False)
+        self.decoder_dropdown.setDisabled(True)
         
         # menu for channel format selection
         self.channel_format_dropdown = QComboBox()
@@ -87,21 +91,25 @@ class MainWindow(QMainWindow):
         self.ambi_order_dropdown = QComboBox()
         self.ambi_order_dropdown.addItems(['0', '1', '2', '3', '4'])
         self.ambi_order_dropdown.setDisabled(True)
-        # self.ambi_order_dropdown.currentIndexChanged.connect(
-        #     self.ambi_order_changed
-        # )
+        self.ambi_order_dropdown.currentIndexChanged.connect(
+            self.ambi_order_changed
+        )
 
         # menu for loudspeaker mapping
         self.loudspeaker_mapping_dropdown = QComboBox()
-        available_mapping_files = glob.glob('mappings/*json')
+        mapping_files = glob.glob('mappings/*json')
         mapping_names = [list(x.keys())[0] 
                          for x in [json.load(open(file, 'r')) 
-                         for file in available_mapping_files]]
+                         for file in mapping_files]]
         self.loudspeaker_mapping_dropdown.addItems(mapping_names)
         self.loudspeaker_mapping_dropdown.setDisabled(True)
-        # self.loudspeaker_mapping_dropdown.currentIndexChanged.connect(
-        #     self.loudspeaker_mapping_changed
-        # )
+        self.mapping_files = mapping_files
+        self.loudspeaker_mapping_dropdown.currentIndexChanged.connect(
+            self.loudspeaker_mapping_changed
+        )
+        self.loudspeaker_mapping_changed(
+            self.loudspeaker_mapping_dropdown.currentIndex()
+        )
 
 
         # add all menus to a form
@@ -162,9 +170,7 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
-
-        # audio properties
-        self.player = None
+        
         # might want to use this to set a default
         self.decoder_changed(0)
 
@@ -174,6 +180,7 @@ class MainWindow(QMainWindow):
     
     @n_input_channels.setter
     def n_input_channels(self, n):
+        self.decoder_dropdown.setDisabled(False)
         max_available_order = math.isqrt(n) - 1
         if self.ambi_order_dropdown.isEnabled():
             self.ambi_order_dropdown.setCurrentIndex(max_available_order)
@@ -200,6 +207,18 @@ class MainWindow(QMainWindow):
     def decoder(self, decoder):
         if self.player: self.player.decoder = decoder
         self._decoder = decoder
+    
+    @property
+    def loudspeaker_mapping(self):
+        return self._loudspeaker_mapping
+    
+    @loudspeaker_mapping.setter
+    def loudspeaker_mapping(self, mapping):
+        self._loudspeaker_mapping = mapping
+        
+        if not self.player: return False
+        if isinstance(self.player.decoder, decoders.AmbisonicDecoder):
+            self.decoder.loudspeaker_mapping = mapping
 
     def playButtonClicked(self):
         self.stop_button.setChecked(False)
@@ -282,10 +301,12 @@ class MainWindow(QMainWindow):
             case 0:
                 self.channel_format_dropdown.setDisabled(True)
                 self.ambi_order_dropdown.setDisabled(True)
+                self.loudspeaker_mapping_dropdown.setDisabled(True)
                 self.decoder = decoders.RawDecoder(self.device_n_channels)
             case 1:
                 self.channel_format_dropdown.setDisabled(False)
                 self.ambi_order_dropdown.setDisabled(True)
+                self.loudspeaker_mapping_dropdown.setDisabled(True)
                 self.decoder = decoders.UHJDecoder(self.device_n_channels)
             case 2:
                 self.channel_format_dropdown.setDisabled(False)
@@ -294,12 +315,40 @@ class MainWindow(QMainWindow):
                     self.max_available_order
                 )
                 self.loudspeaker_mapping_dropdown.setDisabled(False)
-                # Ambisonics
+                self.decoder = decoders.AmbisonicDecoder(
+                    self.device_n_channels,
+                    self.loudspeaker_mapping,
+                    self.ambi_order
+                )
 
     def channel_format_changed(self, index):
         match index:
             case 0: self.decoder.channel_format = 'ACN'
             case 1: self.decoder.channel_format = 'FuMa'
+    
+    def loudspeaker_mapping_changed(self, index):
+        mapping_file = self.mapping_files[index]
+        name = self.loudspeaker_mapping_dropdown.itemText(index)
+
+        with open(mapping_file, 'r') as file:
+            mapping = json.load(file)[name]
+        
+        channel_numbers = [int(key) for key in mapping.keys()]
+        theta = np.radians(
+            [float(x['azimuth']) for x in mapping.values()]
+        )
+        phi = np.radians(
+            [float(x['elevation']) for x in mapping.values()]
+        )
+        self.loudspeaker_mapping = [
+            channel_numbers,
+            theta,
+            phi
+        ]
+
+    def ambi_order_changed(self, index):
+        self.ambi_order = index
+        self.decoder.N = index
 
 app = QApplication(sys.argv)
 window = MainWindow()
