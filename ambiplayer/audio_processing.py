@@ -5,9 +5,15 @@ import sounddevice as sd
 import decoders
 
 class AudioPlayer():
-    def __init__(self, clip, fs, 
-                 device_index, channels,
-                 decoder=decoders.raw, current_frame=0) -> None:
+    def __init__(
+            self, 
+            clip, 
+            fs, 
+            device_index, 
+            channels, 
+            decoder, 
+            current_frame=0
+    ) -> None:
 
         self.current_frame = current_frame
         self.clip = clip
@@ -42,7 +48,7 @@ class AudioPlayer():
 
         this_chunk = self.clip[
             self.current_frame:self.current_frame + chunksize]
-        outdata[:chunksize] = self.decoder(this_chunk)
+        outdata[:chunksize] = self.decoder.decode(this_chunk)
         
         if chunksize < frames:
             outdata[chunksize:] = 0

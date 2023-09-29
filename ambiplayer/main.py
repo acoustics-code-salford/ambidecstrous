@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         self.output_device_indices = \
             [device['index'] for device in device_list
              if device['max_output_channels'] > 0]
-        self.output_device_channels = \
+        self.device_channels_list = \
             [device['max_output_channels'] for device in device_list
              if device['max_output_channels'] > 0]
 
@@ -59,8 +59,7 @@ class MainWindow(QMainWindow):
         self.device_dropdown.setCurrentIndex(menu_index)
         self.device_dropdown.currentIndexChanged.connect(self.device_changed)
         self.device_index = sd.default.device[1]
-        self.device_n_channels = self.output_device_channels[menu_index]
-        print(output_device_names[menu_index])
+        self.device_n_channels = self.device_channels_list[menu_index]
 
         # menu for decoder selection
         self.decoder_dropdown = QComboBox()
@@ -133,6 +132,8 @@ class MainWindow(QMainWindow):
 
         # audio properties
         self.player = None
+        # might want to use this to set a default
+        self.decoder_changed(0)
 
     @property
     def n_input_channels(self):
@@ -146,6 +147,16 @@ class MainWindow(QMainWindow):
         elif n >= 4:
             self.decoder_dropdown.model().item(1).setEnabled(True)
             self.decoder_dropdown.model().item(2).setEnabled(True)
+        self._n_input_channels = n
+    
+    @property
+    def decoder(self):
+        return self._decoder
+    
+    @decoder.setter
+    def decoder(self, decoder):
+        if self.player: self.player.decoder = decoder
+        self._decoder = decoder
 
     def playButtonClicked(self):
         self.stop_button.setChecked(False)
@@ -199,17 +210,12 @@ class MainWindow(QMainWindow):
         # needs getter/setter method for enabling decoder menu options
         self.n_input_channels = self.file.shape[1]
 
-        match self.decoder_dropdown.currentIndex():
-            case 0: decoder = decoders.raw
-            case 1: decoder = decoders.stereo_uhj
-            case 2: pass # Ambisonics
-        # MIGHT NEED TO STORE CURRENT DECODER
         self.player = AudioPlayer(
             self.file, 
             self.fs, 
             self.device_index, 
             self.device_n_channels,
-            decoder
+            self.decoder
         )
 
         self.play_button.setDisabled(False)
@@ -219,24 +225,26 @@ class MainWindow(QMainWindow):
     def device_changed(self, index):
         self.device_index = self.output_device_indices[index]
         if not self.player: return False
-        self.player = AudioPlayer(self.file,
-                                  self.fs,
-                                  self.device_index,
-                                  self.device_n_channels,
-                                  current_frame=self.player.current_frame
+        self.player = AudioPlayer(
+            self.file,
+            self.fs,
+            self.device_index,
+            self.device_n_channels,
+            self.decoder,
+            current_frame=self.player.current_frame
         )
     
     def decoder_changed(self, index):
         match index:
             case 0:
                 self.channel_format_dropdown.setDisabled(True)
-                if self.player: self.player.decoder = decoders.raw
+                self.decoder = decoders.RawDecoder(self.device_n_channels)
             case 1:
                 self.channel_format_dropdown.setDisabled(False)
-                if self.player: self.player.decoder = decoders.stereo_uhj
+                self.decoder = decoders.UHJDecoder(self.device_n_channels)
             case 2:
                 self.channel_format_dropdown.setDisabled(False)
-                if self.player: pass # Ambisonics
+                pass # Ambisonics
 
 app = QApplication(sys.argv)
 window = MainWindow()

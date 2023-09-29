@@ -1,22 +1,33 @@
 import numpy as np
 
-# raw should probably pipe channels in order to as many existing output channels
-raw = lambda clip: clip[:, :2]
 
-def stereo_uhj(clip, channel_order='ACN'):
+class RawDecoder():
+    def __init__(self, n_output_channels) -> None:
+        self.n_output_channels = n_output_channels
+        print(n_output_channels)
+    
+    def decode(self, clip):
+        return clip[:, :self.n_output_channels]
 
-    clip = np.fft.fft(clip.T)
 
-    if channel_order == 'ACN': W, Y, _, X = clip
-    elif channel_order == 'FuMa': W, X, Y, _ = clip
+class UHJDecoder(RawDecoder):
+    def __init__(self, n_output_channels, channel_order='ACN') -> None:
+        super().__init__(n_output_channels)
+        self.channel_order = channel_order
 
-    S = 0.9396926*W + 0.1855740*X
-    D = 1j * (-0.3420201*W + 0.5098604*X) + 0.6554516*Y
+    def decode(self, clip):
+        clip = np.fft.fft(clip.T)
 
-    L = np.fft.ifft(((S + D)/2.0))
-    R = np.fft.ifft(((S - D)/2.0))
+        if self.channel_order == 'ACN': W, Y, _, X = clip
+        elif self.channel_order == 'FuMa': W, X, Y, _ = clip
 
-    L = np.expand_dims(np.real(L), 1)
-    R = np.expand_dims(np.real(R), 1)
+        S = 0.9396926*W + 0.1855740*X
+        D = 1j * (-0.3420201*W + 0.5098604*X) + 0.6554516*Y
 
-    return np.concatenate((L, R), 1)
+        L = np.fft.ifft(((S + D)/2.0))
+        R = np.fft.ifft(((S - D)/2.0))
+
+        L = np.expand_dims(np.real(L), 1)
+        R = np.expand_dims(np.real(R), 1)
+
+        return np.concatenate((L, R), 1)
