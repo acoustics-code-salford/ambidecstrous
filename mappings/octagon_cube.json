@@ -1,0 +1,68 @@
+{
+    "Octagon + Cube": {
+        "0": {
+            "azimuth": "0",
+            "elevation": "0"
+        },
+        "1": {
+            "azimuth": "-45",
+            "elevation": "0"
+        },
+        "2": {
+            "azimuth": "-90",
+            "elevation": "0"
+        },
+        "3": {
+            "azimuth": "-135",
+            "elevation": "0"
+        },
+        "4": {
+            "azimuth": "180",
+            "elevation": "0"
+        },
+        "5": {
+            "azimuth": "135",
+            "elevation": "0"
+        },
+        "6": {
+            "azimuth": "90",
+            "elevation": "0"
+        },
+        "7": {
+            "azimuth": "45",
+            "elevation": "0"
+        },
+        "8": {
+            "azimuth": "-45",
+            "elevation": "-45"
+        },
+        "9": {
+            "azimuth": "-135",
+            "elevation": "-45"
+        },
+        "10": {
+            "azimuth": "135",
+            "elevation": "-45"
+        },
+        "11": {
+            "azimuth": "45",
+            "elevation": "-45"
+        },
+        "12": {
+            "azimuth": "-45",
+            "elevation": "45"
+        },
+        "13": {
+            "azimuth": "-135",
+            "elevation": "45"
+        },
+        "14": {
+            "azimuth": "135",
+            "elevation": "45"
+        },
+        "15": {
+            "azimuth": "45",
+            "elevation": "45"
+        }
+    }
+}

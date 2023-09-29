@@ -2,7 +2,6 @@ import threading
 import numpy as np
 import sounddevice as sd
 
-import decoders
 
 class AudioPlayer():
     def __init__(

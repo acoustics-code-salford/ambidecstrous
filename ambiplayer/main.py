@@ -1,5 +1,8 @@
 import os
 import sys
+import math
+import json
+import glob
 import decoders
 import soundfile as sf
 import sounddevice as sd
@@ -24,7 +27,11 @@ from audio_processing import AudioPlayer
 from pathlib import Path
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: Support for files with channels > 2
+# TODO: make a menu incorporating json speaker positioning implementation
+# TODO: make Ambisonic decoder object (with SN3D norm)
+# TODO: support for alternative normalisation schemes
+# TODO: Add horizontal-only support
+# TODO: Add more standard layouts
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -72,12 +79,38 @@ class MainWindow(QMainWindow):
         self.channel_format_dropdown = QComboBox()
         self.channel_format_dropdown.addItems(['ACN', 'FuMa'])
         self.channel_format_dropdown.setDisabled(True)
+        self.channel_format_dropdown.currentIndexChanged.connect(
+            self.channel_format_changed
+        )
+
+        # menu for Ambisonic order
+        self.ambi_order_dropdown = QComboBox()
+        self.ambi_order_dropdown.addItems(['0', '1', '2', '3', '4'])
+        self.ambi_order_dropdown.setDisabled(True)
+        # self.ambi_order_dropdown.currentIndexChanged.connect(
+        #     self.ambi_order_changed
+        # )
+
+        # menu for loudspeaker mapping
+        self.loudspeaker_mapping_dropdown = QComboBox()
+        available_mapping_files = glob.glob('mappings/*json')
+        mapping_names = [list(x.keys())[0] 
+                         for x in [json.load(open(file, 'r')) 
+                         for file in available_mapping_files]]
+        self.loudspeaker_mapping_dropdown.addItems(mapping_names)
+        self.loudspeaker_mapping_dropdown.setDisabled(True)
+        # self.loudspeaker_mapping_dropdown.currentIndexChanged.connect(
+        #     self.loudspeaker_mapping_changed
+        # )
+
 
         # add all menus to a form
         form = QFormLayout()
         form.addRow('Output Device:', self.device_dropdown)
         form.addRow('Decoder:', self.decoder_dropdown)
         form.addRow('Channel Format:', self.channel_format_dropdown)
+        form.addRow('Ambisonic Order:', self.ambi_order_dropdown)
+        form.addRow('Loudspeaker Mapping:', self.loudspeaker_mapping_dropdown)
         layout.addLayout(form, 0, 0, 1, 4, Qt.AlignmentFlag.AlignJustify)
         
         # play button
@@ -141,12 +174,22 @@ class MainWindow(QMainWindow):
     
     @n_input_channels.setter
     def n_input_channels(self, n):
-        if n < 4:
+        max_available_order = math.isqrt(n) - 1
+        if self.ambi_order_dropdown.isEnabled():
+            self.ambi_order_dropdown.setCurrentIndex(max_available_order)
+        
+        if max_available_order < 1:
+            # Ambisonic decoding not available
             self.decoder_dropdown.model().item(1).setEnabled(False)
             self.decoder_dropdown.model().item(2).setEnabled(False)
-        elif n >= 4:
+        else:
             self.decoder_dropdown.model().item(1).setEnabled(True)
             self.decoder_dropdown.model().item(2).setEnabled(True)
+
+        for i in range(max_available_order+1, 5):
+            self.ambi_order_dropdown.model().item(i).setEnabled(False)
+
+        self.max_available_order = max_available_order
         self._n_input_channels = n
     
     @property
@@ -238,13 +281,25 @@ class MainWindow(QMainWindow):
         match index:
             case 0:
                 self.channel_format_dropdown.setDisabled(True)
+                self.ambi_order_dropdown.setDisabled(True)
                 self.decoder = decoders.RawDecoder(self.device_n_channels)
             case 1:
                 self.channel_format_dropdown.setDisabled(False)
+                self.ambi_order_dropdown.setDisabled(True)
                 self.decoder = decoders.UHJDecoder(self.device_n_channels)
             case 2:
                 self.channel_format_dropdown.setDisabled(False)
-                pass # Ambisonics
+                self.ambi_order_dropdown.setDisabled(False)
+                self.ambi_order_dropdown.setCurrentIndex(
+                    self.max_available_order
+                )
+                self.loudspeaker_mapping_dropdown.setDisabled(False)
+                # Ambisonics
+
+    def channel_format_changed(self, index):
+        match index:
+            case 0: self.decoder.channel_format = 'ACN'
+            case 1: self.decoder.channel_format = 'FuMa'
 
 app = QApplication(sys.argv)
 window = MainWindow()

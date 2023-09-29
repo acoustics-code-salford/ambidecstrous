@@ -1,0 +1,36 @@
+{
+    "Cube": {
+        "8": {
+            "azimuth": "-45",
+            "elevation": "-45"
+        },
+        "9": {
+            "azimuth": "-135",
+            "elevation": "-45"
+        },
+        "10": {
+            "azimuth": "135",
+            "elevation": "-45"
+        },
+        "11": {
+            "azimuth": "45",
+            "elevation": "-45"
+        },
+        "12": {
+            "azimuth": "-45",
+            "elevation": "45"
+        },
+        "13": {
+            "azimuth": "-135",
+            "elevation": "45"
+        },
+        "14": {
+            "azimuth": "135",
+            "elevation": "45"
+        },
+        "15": {
+            "azimuth": "45",
+            "elevation": "45"
+        }
+    }
+}
