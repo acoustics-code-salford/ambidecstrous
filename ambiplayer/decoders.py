@@ -1,6 +1,7 @@
 import numpy as np
 
-raw = lambda clip: clip
+# raw should probably pipe channels in order to as many existing output channels
+raw = lambda clip: clip[:, :2]
 
 def stereo_uhj(clip, channel_order='ACN'):
 

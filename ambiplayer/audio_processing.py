@@ -5,7 +5,8 @@ import sounddevice as sd
 import decoders
 
 class AudioPlayer():
-    def __init__(self, clip, fs, device_index, 
+    def __init__(self, clip, fs, 
+                 device_index, channels,
                  decoder=decoders.raw, current_frame=0) -> None:
 
         self.current_frame = current_frame
@@ -17,7 +18,7 @@ class AudioPlayer():
         self.stream = sd.OutputStream(
             samplerate=self.fs, 
             device=device_index, 
-            channels=self.clip.shape[1],
+            channels=channels,
             callback=self.update_output_buffer
         )
 
