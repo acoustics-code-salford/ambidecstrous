@@ -130,19 +130,19 @@ class AmbisonicDecoder(RawDecoder):
             Y_mn[:,i] = sp.sph_harm(m, n, self.theta, self.phi).reshape(1,-1)
 
         # convert complex to real SHs
-        Y_mn = np.real(self.C() @ Y_mn.T)
+        Y_mn = np.real(self.C() @ Y_mn.T).T
 
-        # reorder channels is Furse-Malham ordering selected
+        # reorder channels if Furse-Malham ordering selected
         if self.channel_format == 'FuMa':
             if self.N == 1:
                 fuma_order = [0, 3, 1, 2]
-                return np.array(Y_mn[fuma_order, :])
+                Y_mn = Y_mn[:, fuma_order]
             elif self.N == 0:
                 warnings.warn('Channel ordering n/a for N = 0')
             else:
                 raise ValueError('Cannot use FuMa channel ordering for N > 1')
             
-        return np.array(Y_mn)
+        return np.linalg.pinv(Y_mn)
     
 
     def C(self):
