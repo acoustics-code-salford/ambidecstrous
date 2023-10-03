@@ -27,14 +27,14 @@ from pathlib import Path
 from audio_processing import AudioPlayer
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: make actual decoder stage for Ambisonic object and test
+# TODO: ACN/FuMa for Ambisonics - grey out FuMa for HOA
 # TODO: ? take into account channel numbering for decoder matrix
 # TODO: take into account loudspeaker distance (calculate delays - nearest whole sample to begin with)
 # could use a basic 'stereo' mapping to test all of the above
 
+# TODO: investigate inverse 
 # TODO: add (sn3d) norms / maxre to Ambisonic decoder object
-# TODO: Add horizontal-only support
-# TODO: Add more standard loudspeaker layouts
+# TODO: Add horizontal-only input file support
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -310,6 +310,7 @@ class MainWindow(QMainWindow):
                 self.ambi_order_dropdown.setDisabled(True)
                 self.loudspeaker_mapping_dropdown.setDisabled(True)
                 self.decoder = decoders.UHJDecoder(self.device_n_channels)
+                self.channel_format_dropdown.model().item(1).setEnabled(True)
             case 2:
                 self.channel_format_dropdown.setDisabled(False)
                 self.ambi_order_dropdown.setDisabled(False)
@@ -351,6 +352,12 @@ class MainWindow(QMainWindow):
     def ambi_order_changed(self, index):
         self.ambi_order = index
         self.decoder.N = index
+
+        if index > 1:
+            self.channel_format_dropdown.model().item(1).setEnabled(False)
+            self.channel_format_dropdown.setCurrentIndex(0)
+        else:
+            self.channel_format_dropdown.model().item(1).setEnabled(True)
 
 app = QApplication(sys.argv)
 window = MainWindow()

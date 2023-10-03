@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import scipy.special as sp
 from scipy.linalg import block_diag
@@ -17,7 +18,12 @@ class UHJDecoder(RawDecoder):
         self.channel_format = channel_format
 
     def decode(self, clip):
-        # clip = clip[:, :4]
+        if clip.shape[1] > 4:
+            warnings.warn(
+                'Higher-order file input. Using first-order channels only.'
+            )
+            clip = clip[:, :4]
+        
         clip = np.fft.fft(clip.T)
 
         if self.channel_format == 'ACN': W, Y, _, X = clip
@@ -49,11 +55,6 @@ class AmbisonicDecoder(RawDecoder):
             weighting='flat'
     ) -> None:
         super().__init__(n_output_channels)
-        
-        # try-except if n_output_channels does not match loudspeaker mapping
-        # maybe just print a warning
-        # and also if N is higher/lower than supported
-        # could this be a popup?
 
         self.N = N
         self.loudspeaker_mapping = loudspeaker_mapping
@@ -61,6 +62,10 @@ class AmbisonicDecoder(RawDecoder):
         self.normalisation = normalisation
         self.weighting = weighting
 
+        # TODO: try-except if n_output_ channels does not match loudspeaker mapping
+        # maybe just print a warning
+        print(len(loudspeaker_mapping[0]))
+        # check decoder output
 
     @property
     def N(self):
@@ -69,6 +74,8 @@ class AmbisonicDecoder(RawDecoder):
     @N.setter
     def N(self, N):
         self._N = N
+        self._n_ambi_channels = (N+1)**2
+        # print(self._n_ambi_channels)
         try: self.loudspeaker_mapping
         except AttributeError: pass
         else:
@@ -82,13 +89,32 @@ class AmbisonicDecoder(RawDecoder):
     @loudspeaker_mapping.setter
     def loudspeaker_mapping(self, mapping):
         self.channels, self.theta, self.phi = mapping
+
+        # transfer angles to correct ranges for scipy.sph_harm
+        # e.g. theta in [0, 2*pi], phi in [0, pi]
+        theta_map = lambda theta: (- theta + (2*np.pi)) % (2*np.pi)
+        phi_map = lambda phi: (- phi - np.pi/2) % np.pi
+        self.theta = theta_map(self.theta)
+        self.phi = phi_map(self.phi)
+
         print(self.decoding_matrix().shape)
         print(self.decoding_matrix())
 
     
     def decode(self, clip):
-        clip = clip @ self.decoding_matrix()
+        # check and match channels to decoder order
+        if clip.shape[1] > self._n_ambi_channels:
+            clip = clip[:, :self._n_ambi_channels]
+            warnings.warn(
+                'Input file is higher order than decoder. ' +
+                f'Using channels for N = {self.N} only.'
+            )            
+        elif clip.shape[1] < self._n_ambi_channels:
+            raise ValueError(
+                'Not enough channels available for selected decoder order.'
+            )
         
+        clip = clip @ self.decoding_matrix()
         # passing through super makes sure output channel count is correct
         return super().decode(clip)
 
@@ -104,19 +130,19 @@ class AmbisonicDecoder(RawDecoder):
             Y_mn[:,i] = sp.sph_harm(m, n, self.theta, self.phi).reshape(1,-1)
 
         # convert complex to real SHs
-        Y_mn = np.real(self.C(self.N) @ Y_mn.T)
+        Y_mn = np.real(self.C() @ Y_mn.T)
         return np.array(Y_mn)
     
 
-    def C(self, N):
+    def C(self):
         C = []
-        for n in range(N+1): C.append(self.c(n))
+        for n in range(self.N+1): C.append(self.c(n))
         return block_diag(*[x for x in C])
 
 
-    def c(self, N): # complex/real transform matrix
-        indices = self.rotation_indices(N)
-        C = np.zeros((2*N+1)**2, dtype=complex)
+    def c(self, n): # complex/real transform matrix
+        indices = self.rotation_indices(n)
+        C = np.zeros((2*n+1)**2, dtype=complex)
 
         for i, (_, m, mp) in enumerate(indices):
             if abs(m) != abs(mp):
@@ -134,7 +160,7 @@ class AmbisonicDecoder(RawDecoder):
                 C[i] = -1j*(int(-1)**int(m))
 
         C *= 1/(np.sqrt(2))
-        return C.reshape(2*N+1, 2*N+1)
+        return C.reshape(2*n+1, 2*n+1)
     
 
     def rotation_indices(self, n):

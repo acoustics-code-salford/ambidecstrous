@@ -16,6 +16,7 @@ pyqt6 = "^6.5.2"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.25.2"
+matplotlib = "^3.8.0"
 
 [build-system]
 requires = ["poetry-core"]
