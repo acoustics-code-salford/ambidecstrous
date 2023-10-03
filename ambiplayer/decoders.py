@@ -55,17 +55,18 @@ class AmbisonicDecoder(RawDecoder):
             weighting='flat'
     ) -> None:
         super().__init__(n_output_channels)
+        n_loudspeakers = len(loudspeaker_mapping[0])
+        if n_output_channels < n_loudspeakers:
+            warnings.warn('Fewer output channels on device ' +
+                          f'({n_output_channels}) than specified ' +
+                          f'in loudspeaker mapping ({n_loudspeakers}). ' + 
+                          'Output will be truncated to available channels.')
 
         self.N = N
-        self.loudspeaker_mapping = loudspeaker_mapping
         self.channel_format = channel_format
+        self.loudspeaker_mapping = loudspeaker_mapping
         self.normalisation = normalisation
         self.weighting = weighting
-
-        # TODO: try-except if n_output_ channels does not match loudspeaker mapping
-        # maybe just print a warning
-        print(len(loudspeaker_mapping[0]))
-        # check decoder output
 
     @property
     def N(self):
@@ -75,7 +76,7 @@ class AmbisonicDecoder(RawDecoder):
     def N(self, N):
         self._N = N
         self._n_ambi_channels = (N+1)**2
-        # print(self._n_ambi_channels)
+        print(self._n_ambi_channels)
         try: self.loudspeaker_mapping
         except AttributeError: pass
         else:
@@ -120,7 +121,6 @@ class AmbisonicDecoder(RawDecoder):
 
     
     def decoding_matrix(self):
-        # channels, theta, phi = self.loudspeaker_mapping
         Y_mn = np.zeros([len(self.theta), (self.N+1)**2], dtype=complex)
 
         for i in range((self.N+1)**2):
@@ -131,6 +131,17 @@ class AmbisonicDecoder(RawDecoder):
 
         # convert complex to real SHs
         Y_mn = np.real(self.C() @ Y_mn.T)
+
+        # reorder channels is Furse-Malham ordering selected
+        if self.channel_format == 'FuMa':
+            if self.N == 1:
+                fuma_order = [0, 3, 1, 2]
+                return np.array(Y_mn[fuma_order, :])
+            elif self.N == 0:
+                warnings.warn('Channel ordering n/a for N = 0')
+            else:
+                raise ValueError('Cannot use FuMa channel ordering for N > 1')
+            
         return np.array(Y_mn)
     
 

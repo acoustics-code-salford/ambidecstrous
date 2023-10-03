@@ -17,7 +17,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QFileDialog,
     QFormLayout,
-    QDial,
     QComboBox,
     QWidget,
     QGridLayout
@@ -27,14 +26,16 @@ from pathlib import Path
 from audio_processing import AudioPlayer
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: ACN/FuMa for Ambisonics - grey out FuMa for HOA
 # TODO: ? take into account channel numbering for decoder matrix
 # TODO: take into account loudspeaker distance (calculate delays - nearest whole sample to begin with)
 # could use a basic 'stereo' mapping to test all of the above
 
-# TODO: investigate inverse 
+# TODO: investigate inverse decoder matrix
 # TODO: add (sn3d) norms / maxre to Ambisonic decoder object
 # TODO: Add horizontal-only input file support
+
+# TODO: playback progress bar
+# TODO: display warnings in window
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -354,9 +355,13 @@ class MainWindow(QMainWindow):
         self.decoder.N = index
 
         if index > 1:
+            self.channel_format_dropdown.setEnabled(True)
             self.channel_format_dropdown.model().item(1).setEnabled(False)
             self.channel_format_dropdown.setCurrentIndex(0)
+        elif index == 0:
+            self.channel_format_dropdown.setEnabled(False)
         else:
+            self.channel_format_dropdown.setEnabled(True)
             self.channel_format_dropdown.model().item(1).setEnabled(True)
 
 app = QApplication(sys.argv)
