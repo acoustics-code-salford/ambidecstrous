@@ -50,6 +50,11 @@ class AmbisonicDecoder(RawDecoder):
     ) -> None:
         super().__init__(n_output_channels)
         
+        # try-except if n_output_channels does not match loudspeaker mapping
+        # maybe just print a warning
+        # and also if N is higher/lower than supported
+        # could this be a popup?
+
         self.N = N
         self.loudspeaker_mapping = loudspeaker_mapping
         self.channel_format = channel_format
@@ -72,29 +77,34 @@ class AmbisonicDecoder(RawDecoder):
 
     @property
     def loudspeaker_mapping(self):
-        return self._loudspeaker_mapping
+        return [self.channels, self.theta, self.phi]
     
     @loudspeaker_mapping.setter
     def loudspeaker_mapping(self, mapping):
-        self._loudspeaker_mapping = mapping
+        self.channels, self.theta, self.phi = mapping
         print(self.decoding_matrix().shape)
         print(self.decoding_matrix())
 
     
-    def decoding_matrix(self):
-        channels, theta, phi = self.loudspeaker_mapping
+    def decode(self, clip):
+        clip = clip @ self.decoding_matrix()
+        
+        # passing through super makes sure output channel count is correct
+        return super().decode(clip)
 
-        Q = len(theta)
-        Y_mn = np.zeros([Q, (self.N+1)**2], dtype=complex)
+    
+    def decoding_matrix(self):
+        # channels, theta, phi = self.loudspeaker_mapping
+        Y_mn = np.zeros([len(self.theta), (self.N+1)**2], dtype=complex)
 
         for i in range((self.N+1)**2):
             # trick from ambiX paper
             n = np.floor(np.sqrt(i))
             m = i - (n**2) - n
-            Y_mn[:,i] = sp.sph_harm(m, n, theta, phi).reshape(1,-1)
+            Y_mn[:,i] = sp.sph_harm(m, n, self.theta, self.phi).reshape(1,-1)
 
         # convert complex to real SHs
-        Y_mn = np.real((self.C(self.N) @ Y_mn.T).T)
+        Y_mn = np.real(self.C(self.N) @ Y_mn.T)
         return np.array(Y_mn)
     
 

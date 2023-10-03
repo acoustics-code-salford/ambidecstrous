@@ -12,24 +12,26 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QPushButton,
-    QMainWindow, 
-    QApplication, 
-    QLabel, 
-    QFileDialog, 
+    QMainWindow,
+    QApplication,
+    QLabel,
+    QFileDialog,
     QFormLayout,
     QDial,
     QComboBox,
-    QWidget, 
+    QWidget,
     QGridLayout
 )
 
-from audio_processing import AudioPlayer
-
 from pathlib import Path
+from audio_processing import AudioPlayer
 root_path = str(Path(__file__).parent.parent)
 
 # TODO: make actual decoder stage for Ambisonic object and test
 # TODO: ? take into account channel numbering for decoder matrix
+# TODO: take into account loudspeaker distance (calculate delays - nearest whole sample to begin with)
+# could use a basic 'stereo' mapping to test all of the above
+
 # TODO: add (sn3d) norms / maxre to Ambisonic decoder object
 # TODO: Add horizontal-only support
 # TODO: Add more standard loudspeaker layouts

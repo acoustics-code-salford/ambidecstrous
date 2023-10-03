@@ -34,35 +34,35 @@
         },
         "8": {
             "azimuth": "-45",
-            "elevation": "-45"
+            "elevation": "-39"
         },
         "9": {
             "azimuth": "-135",
-            "elevation": "-45"
+            "elevation": "-39"
         },
         "10": {
             "azimuth": "135",
-            "elevation": "-45"
+            "elevation": "-39"
         },
         "11": {
             "azimuth": "45",
-            "elevation": "-45"
+            "elevation": "-39"
         },
         "12": {
             "azimuth": "-45",
-            "elevation": "45"
+            "elevation": "39"
         },
         "13": {
             "azimuth": "-135",
-            "elevation": "45"
+            "elevation": "39"
         },
         "14": {
             "azimuth": "135",
-            "elevation": "45"
+            "elevation": "39"
         },
         "15": {
             "azimuth": "45",
-            "elevation": "45"
+            "elevation": "39"
         }
     }
 }
