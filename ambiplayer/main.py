@@ -30,10 +30,10 @@ root_path = str(Path(__file__).parent.parent)
 # TODO: take into account loudspeaker distance (calculate delays - nearest whole sample to begin with)
 # could use a basic 'stereo' mapping to test all of the above
 
-# TODO: add sn3d norm to Ambisonic decoder 
 # TODO: Add horizontal-only input file support
 # TODO: {?} Make maxre option dropdown
 
+# TODO: separate data struct / object to manage variables and relation to available options
 # TODO: playback progress bar
 # TODO: display warnings in window
 # TODO: {!}LONG TERM GOAL{!} loudspeaker layout editor window

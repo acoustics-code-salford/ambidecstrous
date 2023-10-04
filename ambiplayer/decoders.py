@@ -149,6 +149,7 @@ class AmbisonicDecoder(RawDecoder):
     
     def Y(self, m, n, theta, phi):
         return (
+            ((-1) ** m) * # condon-shortley compensation
             self._norm(m, n) * 
             np.array(
                 [sp.lpmn(abs(m), n, np.sin(p))[0][abs(m), n] for p in phi]
@@ -159,7 +160,7 @@ class AmbisonicDecoder(RawDecoder):
     def SN3D(self, m, n):
         delta = lambda m: 1 if m == 0 else 0
         return (
-            ((-1)**n) * 
+            ((-1) ** n) * 
             np.sqrt(
                 (2 - delta(m)) * (
                 sp.factorial(n - abs(m)) /
