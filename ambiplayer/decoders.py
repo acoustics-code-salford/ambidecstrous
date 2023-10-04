@@ -1,3 +1,4 @@
+import math
 import warnings
 import numpy as np
 import scipy.special as sp
@@ -52,7 +53,7 @@ class AmbisonicDecoder(RawDecoder):
             N,
             channel_format='ACN',
             normalisation='SN3D',
-            weighting='flat'
+            weighting='maxre'
     ) -> None:
         super().__init__(n_output_channels)
         n_loudspeakers = len(loudspeaker_mapping[0])
@@ -63,10 +64,33 @@ class AmbisonicDecoder(RawDecoder):
                           'Output will be truncated to available channels.')
 
         self.N = N
+        self.normalisation = normalisation
         self.channel_format = channel_format
         self.loudspeaker_mapping = loudspeaker_mapping
-        self.normalisation = normalisation
         self.weighting = weighting
+
+    @property
+    def normalisation(self):
+        return self._normalisation
+    
+    @normalisation.setter
+    def normalisation(self, normalisation):
+        if normalisation == 'SN3D':
+            self._norm = self.SN3D
+        # TODO: N3D (etc.?) to go here
+        self._normalisation = normalisation
+
+    @property
+    def weighting(self):
+        return self._weighting
+    
+    @weighting.setter
+    def weighting(self, weighting):
+        if weighting == 'flat':
+            self._w = np.ones((self._n_ambi_channels))
+        elif weighting == 'maxre':
+            self._w = self.max_re()
+        self._weighting = weighting
 
     @property
     def N(self):
@@ -76,12 +100,12 @@ class AmbisonicDecoder(RawDecoder):
     def N(self, N):
         self._N = N
         self._n_ambi_channels = (N+1)**2
-        print(self._n_ambi_channels)
-        try: self.loudspeaker_mapping
+        
+        # update weighting based on order
+        try: self.weighting
         except AttributeError: pass
         else:
-            print(self.decoding_matrix().shape)
-            print(self.decoding_matrix())
+            self.weighting = self.weighting
 
     @property
     def loudspeaker_mapping(self):
@@ -90,17 +114,7 @@ class AmbisonicDecoder(RawDecoder):
     @loudspeaker_mapping.setter
     def loudspeaker_mapping(self, mapping):
         self.channels, self.theta, self.phi = mapping
-
-        # transfer angles to correct ranges for scipy.sph_harm
-        # e.g. theta in [0, 2*pi], phi in [0, pi]
-        theta_map = lambda theta: (- theta + (2*np.pi)) % (2*np.pi)
-        phi_map = lambda phi: (- phi - np.pi/2) % np.pi
-        self.theta = theta_map(self.theta)
-        self.phi = phi_map(self.phi)
-
-        print(self.decoding_matrix().shape)
-        print(self.decoding_matrix())
-
+        print(self.decoding_matrix(), self.decoding_matrix().shape)
     
     def decode(self, clip):
         # check and match channels to decoder order
@@ -115,69 +129,61 @@ class AmbisonicDecoder(RawDecoder):
                 'Not enough channels available for selected decoder order.'
             )
         
-        clip = clip @ self.decoding_matrix()
+        clip = self._w * clip @ self.decoding_matrix() 
         # passing through super makes sure output channel count is correct
         return super().decode(clip)
 
-    
     def decoding_matrix(self):
-        Y_mn = np.zeros([len(self.theta), (self.N+1)**2], dtype=complex)
+        Y_mn = np.zeros([(self.N+1)**2, len(self.theta)])
 
         for i in range((self.N+1)**2):
             # trick from ambiX paper
-            n = np.floor(np.sqrt(i))
+            n = math.isqrt(i)
             m = i - (n**2) - n
-            Y_mn[:,i] = sp.sph_harm(m, n, self.theta, self.phi).reshape(1,-1)
 
-        # convert complex to real SHs
-        Y_mn = np.real(self.C() @ Y_mn.T).T
+            Y_mn[i,:] = self.Y(m, n, self.theta, self.phi).reshape(1,-1)
 
         # reorder channels if Furse-Malham ordering selected
-        if self.channel_format == 'FuMa':
-            if self.N == 1:
-                fuma_order = [0, 3, 1, 2]
-                Y_mn = Y_mn[:, fuma_order]
-            elif self.N == 0:
-                warnings.warn('Channel ordering n/a for N = 0')
-            else:
-                raise ValueError('Cannot use FuMa channel ordering for N > 1')
-            
-        return np.linalg.pinv(Y_mn)
+        if self.channel_format == 'FuMa': return self._fuma(Y_mn)
+        else: return Y_mn
     
-
-    def C(self):
-        C = []
-        for n in range(self.N+1): C.append(self.c(n))
-        return block_diag(*[x for x in C])
-
-
-    def c(self, n): # complex/real transform matrix
-        indices = self.rotation_indices(n)
-        C = np.zeros((2*n+1)**2, dtype=complex)
-
-        for i, (_, m, mp) in enumerate(indices):
-            if abs(m) != abs(mp):
-                C[i]  = 0
-            elif m - mp == 0: # same sign
-                if m == 0: # both 0
-                    C[i] = np.sqrt(2)
-                elif m < 0: # both negative
-                    C[i] = 1j
-                else: # both positive
-                    C[i] = (int(-1)**int(m))
-            elif m - mp > 0: # mp negative
-                C[i] = 1
-            elif m - mp < 0: # mp positive
-                C[i] = -1j*(int(-1)**int(m))
-
-        C *= 1/(np.sqrt(2))
-        return C.reshape(2*n+1, 2*n+1)
+    def Y(self, m, n, theta, phi):
+        return (
+            self._norm(m, n) * 
+            np.array(
+                [sp.lpmn(abs(m), n, np.sin(p))[0][abs(m), n] for p in phi]
+            ) *
+            (np.cos(m * theta) if m >= 0 else np.sin((-m) * theta))
+        )
     
-
-    def rotation_indices(self, n):
+    def SN3D(self, m, n):
+        delta = lambda m: 1 if m == 0 else 0
+        return (
+            ((-1)**n) * 
+            np.sqrt(
+                (2 - delta(m)) * (
+                sp.factorial(n - abs(m)) /
+                sp.factorial(n + abs(m))
+                )
+            )
+        )
+    
+    def max_re(self):
+        E = max(sp.legendre(self.N+1).r)
         return np.array(
             [
-                [n,m,mp] for n in range(n,n+1)
-                for m in range(-n, n+1) for mp in range(-n, n+1)
+                sp.legendre(
+                int(np.sqrt(i)))(E) 
+                for i in range(self._n_ambi_channels)
             ]
         )
+    
+    def _fuma(self, Y_mn):
+        if self.N == 1:
+            fuma_order = [0, 3, 1, 2]
+            Y_mn = Y_mn[fuma_order, :]
+        elif self.N == 0:
+            warnings.warn('Channel ordering n/a for N = 0')
+        else:
+            raise ValueError('Cannot use FuMa channel ordering for N > 1')
+        return Y_mn

@@ -26,22 +26,24 @@ from pathlib import Path
 from audio_processing import AudioPlayer
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: ? take into account channel numbering for decoder matrix
+# TODO: take into account channel numbering for decoder matrix
 # TODO: take into account loudspeaker distance (calculate delays - nearest whole sample to begin with)
 # could use a basic 'stereo' mapping to test all of the above
 
-# TODO: investigate inverse decoder matrix
-# TODO: add (sn3d) norms / maxre to Ambisonic decoder object
+# TODO: add sn3d norm to Ambisonic decoder 
 # TODO: Add horizontal-only input file support
+# TODO: {?} Make maxre option dropdown
 
 # TODO: playback progress bar
 # TODO: display warnings in window
+# TODO: {!}LONG TERM GOAL{!} loudspeaker layout editor window
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
         self.player = None
+        self._channel_format = None
 
         # general properties of the main window
         layout = QGridLayout()
@@ -183,10 +185,18 @@ class MainWindow(QMainWindow):
     
     @n_input_channels.setter
     def n_input_channels(self, n):
+        # TODO: decoder behaviour before audio clip is selected
+        # how to make menus behave properly if clip does not support settings?
         self.decoder_dropdown.setDisabled(False)
+
+        # set Ambisonic orders available to select
         max_available_order = math.isqrt(n) - 1
-        if self.ambi_order_dropdown.isEnabled():
-            self.ambi_order_dropdown.setCurrentIndex(max_available_order)
+        self.ambi_order_dropdown.setCurrentIndex(max_available_order)
+        for i in range(len(self.ambi_order_dropdown)):
+            if i > max_available_order:
+                self.ambi_order_dropdown.model().item(i).setEnabled(False)
+            else:
+                self.ambi_order_dropdown.model().item(i).setEnabled(True)
         
         if max_available_order < 1:
             # Ambisonic decoding not available
@@ -195,9 +205,6 @@ class MainWindow(QMainWindow):
         else:
             self.decoder_dropdown.model().item(1).setEnabled(True)
             self.decoder_dropdown.model().item(2).setEnabled(True)
-
-        for i in range(max_available_order+1, 5):
-            self.ambi_order_dropdown.model().item(i).setEnabled(False)
 
         self.max_available_order = max_available_order
         self._n_input_channels = n
@@ -232,6 +239,8 @@ class MainWindow(QMainWindow):
         self.device_dropdown.setDisabled(True)
         self.decoder_dropdown.setDisabled(True)
         self.channel_format_dropdown.setDisabled(True)
+        self.ambi_order_dropdown.setDisabled(True)
+        self.loudspeaker_mapping_dropdown.setDisabled(True)
     
     def pauseButtonClicked(self):
         self.play_button.setChecked(False)
@@ -242,6 +251,10 @@ class MainWindow(QMainWindow):
 
         if self.decoder_dropdown.currentIndex() != 0:
             self.channel_format_dropdown.setDisabled(False)
+
+        if self.decoder_dropdown.currentIndex() == 2:
+            self.ambi_order_dropdown.setDisabled(False)
+            self.loudspeaker_mapping_dropdown.setDisabled(False)
 
     def stopButtonClicked(self):
         self.stop_button.setChecked(True)
@@ -254,6 +267,10 @@ class MainWindow(QMainWindow):
         
         if self.decoder_dropdown.currentIndex() != 0:
             self.channel_format_dropdown.setDisabled(False)
+        
+        if self.decoder_dropdown.currentIndex() == 2:
+            self.ambi_order_dropdown.setDisabled(False)
+            self.loudspeaker_mapping_dropdown.setDisabled(False)
 
     def openButtonClicked(self, _):
         # set up dialog box
@@ -322,13 +339,17 @@ class MainWindow(QMainWindow):
                 self.decoder = decoders.AmbisonicDecoder(
                     self.device_n_channels,
                     self.loudspeaker_mapping,
-                    self.ambi_order
+                    self.ambi_order,
+                    weighting='maxre',
+                    channel_format=self._channel_format
                 )
 
     def channel_format_changed(self, index):
         match index:
-            case 0: self.decoder.channel_format = 'ACN'
-            case 1: self.decoder.channel_format = 'FuMa'
+            case 0: format = 'ACN'
+            case 1: format = 'FuMa'
+        self._channel_format =  format
+        self.decoder.channel_format = format
     
     def loudspeaker_mapping_changed(self, index):
         mapping_file = self.mapping_files[index]
