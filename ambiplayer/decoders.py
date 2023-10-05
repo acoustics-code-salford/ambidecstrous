@@ -2,7 +2,6 @@ import math
 import warnings
 import numpy as np
 import scipy.special as sp
-from scipy.linalg import block_diag
 
 
 class RawDecoder():
@@ -50,10 +49,7 @@ class AmbisonicDecoder(RawDecoder):
             self, 
             n_output_channels, 
             loudspeaker_mapping,
-            N,
-            channel_format='ACN',
-            normalisation='SN3D',
-            weighting='maxre'
+            N
     ) -> None:
         super().__init__(n_output_channels)
         n_loudspeakers = len(loudspeaker_mapping[0])
@@ -64,34 +60,8 @@ class AmbisonicDecoder(RawDecoder):
                           'Output will be truncated to available channels.')
 
         self.N = N
-        self.normalisation = normalisation
-        self.channel_format = channel_format
         self.loudspeaker_mapping = loudspeaker_mapping
-        self.weighting = weighting
-
-    @property
-    def normalisation(self):
-        return self._normalisation
     
-    @normalisation.setter
-    def normalisation(self, normalisation):
-        if normalisation == 'SN3D':
-            self._norm = self.SN3D
-        # TODO: N3D (etc.?) to go here
-        self._normalisation = normalisation
-
-    @property
-    def weighting(self):
-        return self._weighting
-    
-    @weighting.setter
-    def weighting(self, weighting):
-        if weighting == 'flat':
-            self._w = np.ones((self._n_ambi_channels))
-        elif weighting == 'maxre':
-            self._w = self.max_re()
-        self._weighting = weighting
-
     @property
     def N(self):
         return self._N
@@ -99,22 +69,15 @@ class AmbisonicDecoder(RawDecoder):
     @N.setter
     def N(self, N):
         self._N = N
-        self._n_ambi_channels = (N+1)**2
-        
-        # update weighting based on order
-        try: self.weighting
-        except AttributeError: pass
-        else:
-            self.weighting = self.weighting
+        self._n_ambi_channels = (N+1) ** 2
 
     @property
     def loudspeaker_mapping(self):
-        return [self.channels, self.theta, self.phi]
+        return [self.channels, self._theta, self._phi]
     
     @loudspeaker_mapping.setter
     def loudspeaker_mapping(self, mapping):
-        self.channels, self.theta, self.phi = mapping
-        print(self.decoding_matrix(), self.decoding_matrix().shape)
+        self.channels, self._theta, self._phi = mapping
     
     def decode(self, clip):
         # check and match channels to decoder order
@@ -128,39 +91,39 @@ class AmbisonicDecoder(RawDecoder):
             raise ValueError(
                 'Not enough channels available for selected decoder order.'
             )
-        
-        clip = self._w * clip @ self.decoding_matrix() 
+        clip = self._w() * clip @ self.decoding_matrix() 
         # passing through super makes sure output channel count is correct
         return super().decode(clip)
 
     def decoding_matrix(self):
-        Y_mn = np.zeros([(self.N+1)**2, len(self.theta)])
-
+        Y_mn = np.zeros([(self.N+1)**2, len(self._theta)])
         for i in range((self.N+1)**2):
             # trick from ambiX paper
             n = math.isqrt(i)
             m = i - (n**2) - n
-
-            Y_mn[i,:] = self.Y(m, n, self.theta, self.phi).reshape(1,-1)
-
-        # reorder channels if Furse-Malham ordering selected
-        if self.channel_format == 'FuMa': return self._fuma(Y_mn)
-        else: return Y_mn
+            Y_mn[i,:] = self.Y(m, n).reshape(1,-1)
+        return Y_mn
     
-    def Y(self, m, n, theta, phi):
+    def Y(self, m, n):
         return (
             ((-1) ** m) * # condon-shortley compensation
             self._norm(m, n) * 
             np.array(
-                [sp.lpmn(abs(m), n, np.sin(p))[0][abs(m), n] for p in phi]
+                [sp.lpmn(abs(m), n, np.sin(p))[0][abs(m), n] for p in self._phi]
             ) *
-            (np.cos(m * theta) if m >= 0 else np.sin((-m) * theta))
+            (np.cos(m * self._theta) if m >= 0 else np.sin((-m) * self._theta))
         )
     
-    def SN3D(self, m, n):
+
+class ACNDecoder(AmbisonicDecoder):
+    def __init__(self, n_output_channels, loudspeaker_mapping, N) -> None:
+        self._w = self._max_re
+        self._norm = self._SN3D
+        super().__init__(n_output_channels, loudspeaker_mapping, N)
+
+    def _SN3D(self, m, n):
         delta = lambda m: 1 if m == 0 else 0
         return (
-            ((-1) ** n) * 
             np.sqrt(
                 (2 - delta(m)) * (
                 sp.factorial(n - abs(m)) /
@@ -169,7 +132,7 @@ class AmbisonicDecoder(RawDecoder):
             )
         )
     
-    def max_re(self):
+    def _max_re(self):
         E = max(sp.legendre(self.N+1).r)
         return np.array(
             [
@@ -179,12 +142,12 @@ class AmbisonicDecoder(RawDecoder):
             ]
         )
     
-    def _fuma(self, Y_mn):
-        if self.N == 1:
-            fuma_order = [0, 3, 1, 2]
-            Y_mn = Y_mn[fuma_order, :]
-        elif self.N == 0:
-            warnings.warn('Channel ordering n/a for N = 0')
-        else:
-            raise ValueError('Cannot use FuMa channel ordering for N > 1')
-        return Y_mn
+    # def _fuma(self, Y_mn):
+    #     if self.N == 1:
+    #         fuma_order = [0, 3, 1, 2]
+    #         Y_mn = Y_mn[fuma_order, :]
+    #     elif self.N == 0:
+    #         warnings.warn('Channel ordering n/a for N = 0')
+    #     else:
+    #         raise ValueError('Cannot use FuMa channel ordering for N > 1')
+    #     return Y_mn
