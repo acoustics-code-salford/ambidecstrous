@@ -9,6 +9,9 @@ class RawDecoder():
         self.n_output_channels = n_output_channels
 
     def decode(self, clip):
+        # TODO: this will fail if n_output_channels is higher than channels
+        # present in clip - possible to use this stage for taking into account
+        # channel ordering specified in mappings?
         return clip[:, :self.n_output_channels]
 
 

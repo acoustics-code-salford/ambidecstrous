@@ -4,7 +4,6 @@ import math
 import json
 import glob
 import decoders
-import numpy as np
 import soundfile as sf
 import sounddevice as sd
 
@@ -21,6 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
     QGridLayout
 )
+
+from utils import load_mapping
 
 from pathlib import Path
 from audio_processing import AudioPlayer
@@ -319,24 +320,12 @@ class MainWindow(QMainWindow):
                 )
 
     def loudspeaker_mapping_changed(self, index):
+        # TODO: streamline this - we only need to save the index and
+        # pass this to decoder with load_mapping function args
+
         mapping_file = self.mapping_files[index]
         name = self.loudspeaker_mapping_dropdown.itemText(index)
-
-        with open(mapping_file, 'r') as file:
-            mapping = json.load(file)[name]
-
-        channel_numbers = [int(key) for key in mapping.keys()]
-        theta = np.radians(
-            [float(x['azimuth']) for x in mapping.values()]
-        )
-        phi = np.radians(
-            [float(x['elevation']) for x in mapping.values()]
-        )
-        self.loudspeaker_mapping = [
-            channel_numbers,
-            theta,
-            phi
-        ]
+        self.loudspeaker_mapping = load_mapping(mapping_file, name)
 
     def ambi_order_changed(self, index):
         self.ambi_order = index
