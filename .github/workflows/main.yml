@@ -1,12 +1,7 @@
-# - name: Python flake8 Lint
-#   uses: py-actions/flake8@v2.2.1
-
-name: lint
-
+name: test
 on: [push, pull_request]
-
 jobs:
-  flake8:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,3 +17,12 @@ jobs:
 
       - name: Lint with flake8
         run: flake8 --count
+
+      - name: Install poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install
+        
+      - name: Test
+        run: poetry run python run tests/tests.py
