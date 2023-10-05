@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
 
         # general properties of the main window
         layout = QGridLayout()
-        self.setWindowTitle('Ambisonic Audio Player')
+        self.setWindowTitle('Ambidecstrous')
         self.setFixedSize(QSize(500, 300))
 
         # label shown in main part of window
