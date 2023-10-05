@@ -36,6 +36,7 @@ jobs:
         run: |
           poetry config virtualenvs.in-project true
           poetry install
+          pip install sndfile
         
       - name: Test
         run: poetry run python tests/tests.py
