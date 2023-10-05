@@ -33,7 +33,9 @@ jobs:
         run: pip install poetry
   
       - name: Install dependencies
-        run: poetry install
+        run: |
+          poetry config settings.virtualenvs.in-project true
+          poetry install
         
       - name: Test
         run: poetry run python run tests/tests.py
