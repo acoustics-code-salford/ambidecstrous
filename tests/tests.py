@@ -25,14 +25,14 @@ class TestDecoders(unittest.TestCase):
         mapping = load_mapping('mappings/octagon.json', 'Octagon')
         decoder = ACNDecoder(2, mapping, n)
 
-        self.assertWarns(Warning, ACNDecoder, 
+        self.assertWarns(Warning, ACNDecoder,
                          n_output_channels=2,
                          loudspeaker_mapping=mapping,
                          N=n)
 
         self.assertWarns(Warning, decoder.decode, clip=self.x)
 
-        # make sure decoding matrix is the correct shape
+        # make sure decoding matrix is the correct shape
         self.assertEqual(
             decoder.decoding_matrix().shape, ((n+1)**2, len(mapping[0]))
         )
@@ -43,6 +43,7 @@ class TestDecoders(unittest.TestCase):
         decoder = ACNDecoder(2, mapping, n)
         # check Z channel now contains values for elevated loudspeakers
         self.assertTrue(decoder.decoding_matrix()[2, :].any())
+
 
 if __name__ == '__main__':
     unittest.main()
