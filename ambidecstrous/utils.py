@@ -2,8 +2,6 @@ import json
 import numpy as np
 
 
-# TODO: modify mapping format so all contained in same file and only name is
-# needed as key
 def load_mapping(mapping_file, name):
     with open(mapping_file, 'r') as file:
         mapping = json.load(file)[name]
