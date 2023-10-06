@@ -27,21 +27,6 @@ from pathlib import Path
 from audio_processing import AudioPlayer
 root_path = str(Path(__file__).parent.parent)
 
-# TODO: take into account channel numbering for decoder matrix
-# TODO: take into account loudspeaker distance
-# (calculate delays - nearest whole sample to begin with)
-# TODO: use a basic 'stereo' mapping to test all of the above
-
-# TODO: implement Furse-Malham as AmbisonicDecoder subclass
-
-# TODO: decoder behaviour before audio clip is selected
-# how to make menus behave properly if clip does not support settings?
-# TODO: re-add FuMa menu item
-# TODO: separate data struct / object to manage variables, available options
-# TODO: playback progress bar
-# TODO: display warnings in window
-# TODO: {!}LONG TERM GOAL{!} loudspeaker layout editor window
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -320,9 +305,6 @@ class MainWindow(QMainWindow):
                 )
 
     def loudspeaker_mapping_changed(self, index):
-        # TODO: streamline this - we only need to save the index and
-        # pass this to decoder with load_mapping function args
-
         mapping_file = self.mapping_files[index]
         name = self.loudspeaker_mapping_dropdown.itemText(index)
         self.loudspeaker_mapping = load_mapping(mapping_file, name)
