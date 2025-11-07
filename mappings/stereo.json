@@ -1,0 +1,12 @@
+{
+    "Stereo": {
+        "0": {
+            "azimuth": "45",
+            "elevation": "90"
+        },
+        "1": {
+            "azimuth": "315",
+            "elevation": "90"
+        }
+    }
+}

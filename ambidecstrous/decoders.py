@@ -46,7 +46,7 @@ class UHJDecoder(RawDecoder):
         return super().decode(clip)
 
 
-class AmbisonicDecoder(RawDecoder):
+class ACNDecoder(RawDecoder):
     def __init__(
             self,
             n_output_channels,
@@ -93,55 +93,46 @@ class AmbisonicDecoder(RawDecoder):
             raise ValueError(
                 'Not enough channels available for selected decoder order.'
             )
-        clip = self._w() * clip @ self.decoding_matrix()
+        clip = clip @ self.decoding_matrix()
         # passing through super makes sure output channel count is correct
         return super().decode(clip)
 
     def decoding_matrix(self):
-        Y_mn = np.zeros([(self.N+1)**2, len(self._theta)])
-        for i in range((self.N+1)**2):
-            # trick from ambiX paper
-            n = math.isqrt(i)
-            m = i - (n**2) - n
-            Y_mn[i, :] = self.Y(m, n).reshape(1, -1)
-        return Y_mn
+        return np.array([
+            self._y_vector_real(t, f) 
+            for (t, f) in zip(self._theta, self._phi)
+        ]).T
 
-    def Y(self, m, n):
-        return (
-            ((-1) ** m) *  # condon-shortley compensation
-            self._norm(m, n) *
-            np.array(
-                [sp.lpmn(abs(m), n, np.sin(phi))[0][abs(m), n]
-                 for phi in self._phi]
-            ) *
-            (
-                np.cos(m * self._theta)
-                if m >= 0 else np.sin((-m) * self._theta)
-            )
-        )
+    def _acn_index(self, n, m):
+        return n**2 + n + m
+
+    def _y_vector_real(self, theta, phi):
+        """Compute real-valued ACN/SN3D spherical harmonic vector."""
+        Y = np.zeros(((self.N+1)**2,), dtype=float)
+        for n in range(self.N+1):
+            for m in range(-n, n+1):
+                Y[self._acn_index(n, m)] = self.sn3d_real_y(n, m, theta, phi)
+        return Y
+
+    def sn3d_real_y(self, n, m, theta, phi):
+        """Real SN3D spherical harmonic (ACN ordering)."""
+        Y = sp.sph_harm_y(n, abs(m), theta, phi)
+        K = np.sqrt((2 - int(m == 0)) * 
+                    math.factorial(n - abs(m)) / 
+                    math.factorial(n + abs(m)))
+        if m < 0:
+            return np.sqrt(2) * (-1)**m * Y.imag * K
+        elif m == 0:
+            return Y.real * K
+        else:  # m > 0
+            return np.sqrt(2) * (-1)**m * Y.real * K
 
 
-class ACNDecoder(AmbisonicDecoder):
-    def __init__(self, n_output_channels, loudspeaker_mapping, N) -> None:
-        self._w = self._max_re
-        self._norm = self._SN3D
-        super().__init__(n_output_channels, loudspeaker_mapping, N)
-
-    def _SN3D(self, m, n):
-        return (
-            np.sqrt(
-                (2 - (lambda m: 1 if m == 0 else 0)(m)) * (
-                    sp.factorial(n - abs(m)) /
-                    sp.factorial(n + abs(m))
-                )
-            )
-        )
-
-    def _max_re(self):
-        E = max(sp.legendre(self.N+1).r)
-        return np.array(
-            [
-                sp.legendre(int(np.sqrt(i)))(E)
-                for i in range(self._n_ambi_channels)
-            ]
-        )
+    # def _max_re(self):
+    #     E = max(sp.legendre(self.N+1).r)
+    #     return np.array(
+    #         [
+    #             sp.legendre(int(np.sqrt(i)))(E)
+    #             for i in range(self._n_ambi_channels)
+    #         ]
+    #     )

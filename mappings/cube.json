@@ -2,35 +2,35 @@
     "Cube": {
         "8": {
             "azimuth": "45",
-            "elevation": "-39"
+            "elevation": "129"
         },
         "9": {
             "azimuth": "135",
-            "elevation": "-39"
+            "elevation": "129"
         },
         "10": {
             "azimuth": "225",
-            "elevation": "-39"
+            "elevation": "129"
         },
         "11": {
             "azimuth": "315",
-            "elevation": "-39"
+            "elevation": "129"
         },
         "12": {
             "azimuth": "45",
-            "elevation": "39"
+            "elevation": "51"
         },
         "13": {
             "azimuth": "135",
-            "elevation": "39"
+            "elevation": "51"
         },
         "14": {
             "azimuth": "225",
-            "elevation": "39"
+            "elevation": "51"
         },
         "15": {
             "azimuth": "315",
-            "elevation": "39"
+            "elevation": "51"
         }
     }
 }

@@ -7,9 +7,9 @@ def load_mapping(mapping_file, name):
         mapping = json.load(file)[name]
         channel_numbers = [int(key) for key in mapping.keys()]
         theta = np.radians(
-            [float(x['azimuth']) for x in mapping.values()]
+            [float(x['elevation']) for x in mapping.values()]
         )
         phi = np.radians(
-            [float(x['elevation']) for x in mapping.values()]
+            [float(x['azimuth']) for x in mapping.values()]
         )
         return [channel_numbers, theta, phi]

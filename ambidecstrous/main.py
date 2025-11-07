@@ -201,7 +201,7 @@ class MainWindow(QMainWindow):
 
         if not self.player:
             return False
-        if isinstance(self.player.decoder, decoders.AmbisonicDecoder):
+        if isinstance(self.player.decoder, decoders.ACNDecoder):
             self.decoder.loudspeaker_mapping = mapping
 
     def playButtonClicked(self):
